@@ -163,6 +163,12 @@ jobs:
           echo "=== Verifikasi ==="
           grep -n "filter %.dtbo" scripts/Makefile.lib || echo "WARNING: patch tidak terpasang"
 
+      - name: Install dtc sistem terbaru (in-tree dtc terlalu lama, gak support &label overlay)
+        run: |
+          sudo apt update
+          sudo apt install -y device-tree-compiler
+          dtc --version
+
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
@@ -194,6 +200,7 @@ jobs:
                OBJCOPY=llvm-objcopy \
                OBJDUMP=llvm-objdump \
                STRIP=llvm-strip \
+               DTC=$(which dtc) \
                -j$(nproc --all) Image.gz-dtb
 
           echo "=== Verify Image.gz-dtb ==="
