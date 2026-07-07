@@ -156,28 +156,13 @@ jobs:
           echo "=== Sesudah (harusnya 0) ==="
           grep -c "andromeda" arch/arm64/boot/dts/qcom/Makefile || echo "0 (bersih)"
 
-      - name: Cek flag -@ (overlay support) di Makefile.dtbo
+      - name: Fix flag -@ overlay di scripts/Makefile.lib (fix .dtbo parsing)
         run: |
           cd kernel
-          echo "=== Isi scripts/Makefile.dtbo ==="
-          cat scripts/Makefile.dtbo
-          echo ""
-          echo "=== Versi dtc yang dipakai (in-tree vs system) ==="
-          which dtc || echo "dtc system tidak ada di PATH"
-          find . -name "dtc" -type f -executable 2>/dev/null
-      
-      - name: Cek flag -@ overlay di build system dtc
-        run: |
-          cd kernel
-          echo "=== Cari '-@' atau 'DTC_FLAGS' terkait overlay ==="
-          grep -n "\-@" arch/arm64/boot/dts/qcom/Makefile scripts/Makefile.lib scripts/Makefile.build 2>/dev/null || echo "(tidak ketemu)"
-          echo ""
-          echo "=== Definisi cmd_dtc di Makefile.lib ==="
-          grep -n -A 12 "^cmd_dtc" scripts/Makefile.lib || echo "(cmd_dtc tidak ketemu)"
-          echo ""
-          echo "=== Definisi DTC_FLAGS ==="
-          grep -n "DTC_FLAGS" scripts/Makefile.lib arch/arm64/boot/dts/qcom/Makefile 2>/dev/null || echo "(DTC_FLAGS tidak ketemu)"
-      
+          python3 ../fix_dtc_overlay.py
+          echo "=== Verifikasi ==="
+          grep -n "filter %.dtbo" scripts/Makefile.lib || echo "WARNING: patch tidak terpasang"
+
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
@@ -226,4 +211,3 @@ jobs:
           path: |
             Evo_cepheus_v3.2.0_KSUN.zip
             kernel/out/arch/arm64/boot/Image.gz-dtb
-            
