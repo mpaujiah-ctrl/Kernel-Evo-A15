@@ -138,6 +138,12 @@ jobs:
           cd kernel
           echo 'KBUILD_CFLAGS += -Wno-error=implicit-function-declaration' >> Makefile
       
+      - name: Fix typo #elif jadi #else di sysstats_fill_zoneinfo (taskstats.c)
+        run: |
+          cd kernel
+          sed -i '0,/^#elif$/{s/^#elif$/#else/}' kernel/taskstats.c
+          grep -n "^#else$\|^#elif$" kernel/taskstats.c
+      
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
