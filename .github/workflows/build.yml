@@ -192,7 +192,6 @@ jobs:
 
           make ARCH=arm64 \
                O=out \
-               V=1 \
                CC=clang \
                AR=llvm-ar \
                LD=ld.lld \
@@ -205,6 +204,13 @@ jobs:
           echo "=== Verify Image.gz-dtb ==="
           ls out/arch/arm64/boot/Image.gz-dtb
 
+      - name: Debug - lihat isi preprocessed dts di sekitar cepheus-pinctrl.dtsi
+        if: always()
+        run: |
+          cd kernel
+          echo "=== Context sekitar cepheus-pinctrl.dtsi di file .tmp ==="
+          grep -n "cepheus-pinctrl.dtsi" -A 15 arch/arm64/boot/dts/qcom/.cepheus-sm8150-overlay.dtbo.dts.tmp | head -60
+      
       - name: Pack AnyKernel3
         run: |
           cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
