@@ -114,7 +114,7 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-gnu-
           export USE_CCACHE=1
 
-          make O=out ARCH=arm64 cepheus_defconfig
+          make O=out ARCH=arm64 defconfig
 
           make ARCH=arm64 \
                O=out \
