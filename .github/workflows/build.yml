@@ -28,7 +28,7 @@ jobs:
           cd kernel
           sed -i 's/KSU_VERSION_FALLBACK := 1/KSU_VERSION_FALLBACK := 33129/' KernelSU-Next/kernel/Kbuild
           grep "KSU_VERSION_FALLBACK" KernelSU-Next/kernel/Kbuild
-      
+
       - name: Update defconfig localversion
         run: |
           cd kernel
@@ -51,7 +51,7 @@ jobs:
           sudo update-alternatives --install /usr/bin/llvm-objcopy llvm-objcopy /usr/bin/llvm-objcopy-19 100
           sudo update-alternatives --install /usr/bin/llvm-objdump llvm-objdump /usr/bin/llvm-objdump-19 100
           sudo update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-19 100
-      
+
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
 
@@ -61,13 +61,13 @@ jobs:
           cat > scripts/dtc/yamltree.c << 'CEOF'
           #include <stdio.h>
           #include <stdlib.h>
-          
+
           struct dt_info;
-          
+
           void dt_to_yaml(FILE *outf, struct dt_info *dti) {}
           CEOF
           echo "yamltree.c replaced with stub"
-      
+
       - name: Inject manual hook ke kernel/reboot.c (required by KSUN 3.2.0 Kbuild check)
         run: |
           cd kernel
@@ -79,7 +79,7 @@ jobs:
           else
             echo "=== Hook sudah ada ==="
           fi
-      
+
       - name: Commit perubahan lokal sebelum cherry-pick
         run: |
           cd kernel
@@ -87,7 +87,7 @@ jobs:
           git config user.name "CI Build"
           git add -A
           git commit -m "local changes: defconfig + reboot.c hook" || echo "nothing to commit"
-      
+
       - name: Upgrade SUSFS ke v2.1.0 (sinkron sama KSUN 3.2.0)
         run: |
           cd kernel
@@ -96,18 +96,14 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs_def.h" -o include/linux/susfs_def.h
           grep "SUSFS_VERSION" include/linux/susfs.h
 
-      - name: Sinkronkan fs/stat.c dengan SUSFS v2.1.0 (fix undefined symbol)
-        run: |
-          cd kernel
-          curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/stat.c" -o fs/stat.c
-          grep -c "susfs" fs/stat.c
+      # NOTE: Step sync fs/stat.c dan fs/proc/task_mmu.c dari raystef66/16.0-ksun
+      # DIHAPUS karena base kernel branch tersebut beda dari branch 'bka' (Evolution-X).
+      # File itu pakai API yang gak ada di kernel ini (nr_ptes, old_cpus_allowed,
+      # vm_write_begin/end, sched_migrate_to_cpumask, mm_nr_pmds), jadi malah bikin
+      # error bertumpuk. Biarkan fs/stat.c dan fs/proc/task_mmu.c pakai versi asli
+      # bawaan branch 'bka'. Kalau SUSFS memang butuh hook di file ini, harus pakai
+      # patch/diff resmi yang dibuat khusus untuk base kernel ini, bukan copy file utuh.
 
-      - name: Sinkronkan fs/proc/task_mmu.c juga (biasanya sepaket sama stat.c)
-        run: |
-          cd kernel
-          curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
-          grep -c "susfs" fs/proc/task_mmu.c
-                  
       - name: Fix typo bug ptep->pte di hugetlbpage.c
         run: |
           cd kernel
@@ -133,17 +129,17 @@ jobs:
           cd kernel
           sed -i 's/split_huge_pmd(vma, addr, pmd);/split_huge_pmd(vma, pmd, addr);/' fs/proc/task_mmu.c
 
-      - name: Relax implicit-function-declaration jadi warning (clang 19 lebih strict)
-        run: |
-          cd kernel
-          echo 'KBUILD_CFLAGS += -Wno-error=implicit-function-declaration' >> Makefile
-      
       - name: Fix typo #elif jadi #else di sysstats_fill_zoneinfo (taskstats.c)
         run: |
           cd kernel
           sed -i '0,/^#elif$/{s/^#elif$/#else/}' kernel/taskstats.c
           grep -n "^#else$\|^#elif$" kernel/taskstats.c
-      
+
+      - name: Relax implicit-function-declaration jadi warning (clang 19 lebih strict)
+        run: |
+          cd kernel
+          echo 'KBUILD_CFLAGS += -Wno-error=implicit-function-declaration' >> Makefile
+
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
@@ -191,4 +187,4 @@ jobs:
           name: Evo-cepheus-v3.2.0-KSUN
           path: |
             Evo_cepheus_v3.2.0_KSUN.zip
-            kernel/out/arch/arm64/boot/Image.gz-dtb     
+            kernel/out/arch/arm64/boot/Image.gz-dtb
