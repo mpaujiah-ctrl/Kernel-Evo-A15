@@ -43,8 +43,6 @@ jobs:
           sudo apt update
           sudo apt install -y clang-19 lld-19 llvm-19 bc bison flex libssl-dev libelf-dev build-essential
           sudo apt install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
-
-          # Buat alias biar 'clang', 'ld.lld', dll otomatis mengarah ke versi 19
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 100
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
           sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-19 100
@@ -53,8 +51,6 @@ jobs:
           sudo update-alternatives --install /usr/bin/llvm-objcopy llvm-objcopy /usr/bin/llvm-objcopy-19 100
           sudo update-alternatives --install /usr/bin/llvm-objdump llvm-objdump /usr/bin/llvm-objdump-19 100
           sudo update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-19 100
-
-          clang --version
       
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
@@ -112,26 +108,48 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep -c "susfs" fs/proc/task_mmu.c
                   
-      - name: DEBUG - cek konteks split_huge_pmd di task_mmu.c
-        run: |
-          cd kernel
-          echo "=== Baris 1700-1725 task_mmu.c ==="
-          sed -n '1700,1725p' fs/proc/task_mmu.c
-          echo ""
-          echo "=== Definisi split_huge_pmd di huge_mm.h ==="
-          grep -n -A 15 "define split_huge_pmd" include/linux/huge_mm.h
-      
       - name: Fix typo bug ptep->pte di hugetlbpage.c
         run: |
           cd kernel
           sed -i 's/ptep = huge_pmd_share(mm, vma, addr, pud);/pte = huge_pmd_share(mm, vma, addr, pud);/' arch/arm64/mm/hugetlbpage.c
-          grep -n "huge_pmd_share(mm, vma, addr, pud)" arch/arm64/mm/hugetlbpage.c
 
       - name: Fix pids[PIDTYPE_PID] -> task_pid() di kvm_main.c
         run: |
           cd kernel
           sed -i 's/current->pids\[PIDTYPE_PID\]\.pid/task_pid(current)/' virt/kvm/kvm_main.c
-          grep -n "task_pid(current)" virt/kvm/kvm_main.c
+
+      - name: Fix try_to_unmap() missing vma argument di huge_memory.c
+        run: |
+          cd kernel
+          sed -i 's/try_to_unmap(page, ttu_flags);/try_to_unmap(page, ttu_flags, NULL);/' mm/huge_memory.c
+
+      - name: Fix duplicate 'event' declaration di trace_event_perf.c
+        run: |
+          cd kernel
+          python3 -c "
+          with open('kernel/trace/trace_event_perf.c') as f:
+              content = f.read()
+          old = '''\tstruct perf_event *event;
+          \tstruct ftrace_entry *entry;
+          \tstruct perf_event *event;
+          \tstruct hlist_head head;'''
+                    new = '''\tstruct perf_event *event;
+          \tstruct ftrace_entry *entry;
+          \tstruct hlist_head head;'''
+          content = content.replace(old, new, 1)
+          with open('kernel/trace/trace_event_perf.c', 'w') as f:
+              f.write(content)
+          "
+
+      - name: Fix argument order split_huge_pmd di task_mmu.c
+        run: |
+          cd kernel
+          sed -i 's/split_huge_pmd(vma, addr, pmd);/split_huge_pmd(vma, pmd, addr);/' fs/proc/task_mmu.c
+
+      - name: Relax implicit-function-declaration jadi warning (clang 19 lebih strict)
+        run: |
+          cd kernel
+          echo 'KBUILD_CFLAGS += -Wno-error=implicit-function-declaration' >> Makefile
       
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
