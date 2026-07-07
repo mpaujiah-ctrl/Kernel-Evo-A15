@@ -163,6 +163,11 @@ jobs:
           echo "=== Verifikasi ==="
           grep -n "filter %.dtbo" scripts/Makefile.lib || echo "WARNING: patch tidak terpasang"
 
+      - name: Debug - print full cmd_dtc block setelah patch
+        run: |
+          cd kernel
+          sed -n '328,340p' scripts/Makefile.lib
+      
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
@@ -187,6 +192,7 @@ jobs:
 
           make ARCH=arm64 \
                O=out \
+               V=1 \
                CC=clang \
                AR=llvm-ar \
                LD=ld.lld \
