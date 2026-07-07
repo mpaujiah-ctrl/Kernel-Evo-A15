@@ -147,6 +147,13 @@ jobs:
           cd kernel
           echo 'KBUILD_CFLAGS += -Wno-error=implicit-function-declaration' >> Makefile
 
+      - name: Cari & exclude andromeda overlay (device lain, bukan cepheus)
+        run: |
+          cd kernel
+          echo "=== Cari referensi 'andromeda' di Makefile dtb ==="
+          grep -rn "andromeda" arch/arm64/boot/dts/qcom/Makefile arch/arm64/boot/dts/qcom/xiaomi/Makefile 2>/dev/null || echo "Tidak ketemu di Makefile utama, cek semua Makefile"
+          grep -rln "andromeda" arch/arm64/boot/dts/ --include=Makefile
+      
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
