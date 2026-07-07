@@ -13,6 +13,14 @@ jobs:
       - name: Clone kernel source (raystef66, branch 15.0)
         run: git clone --depth=1 -b bka https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
 
+      - name: DEBUG - cek isi defconfig
+        run: |
+          cd kernel
+          echo "=== Cari CONFIG_LOCALVERSION ==="
+          grep -n "LOCALVERSION" arch/arm64/configs/defconfig || echo "TIDAK ADA baris LOCALVERSION"
+          echo "=== List semua defconfig ==="
+          find arch/arm64/configs -type f
+      
       - name: Upgrade KernelSU-Next dari v1.39 (81dff86) ke v3.2.0 (00cb93e)
         run: |
           cd kernel
