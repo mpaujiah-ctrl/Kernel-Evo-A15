@@ -13,14 +13,6 @@ jobs:
       - name: Clone kernel source (raystef66, branch 15.0)
         run: git clone --depth=1 -b bka https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
 
-      - name: DEBUG - cek isi defconfig
-        run: |
-          cd kernel
-          echo "=== Cari CONFIG_LOCALVERSION ==="
-          grep -n "LOCALVERSION" arch/arm64/configs/defconfig || echo "TIDAK ADA baris LOCALVERSION"
-          echo "=== List semua defconfig ==="
-          find arch/arm64/configs -type f
-      
       - name: Upgrade KernelSU-Next dari v1.39 (81dff86) ke v3.2.0 (00cb93e)
         run: |
           cd kernel
@@ -40,8 +32,6 @@ jobs:
       - name: Update defconfig localversion
         run: |
           cd kernel
-          # hapus dulu baris lama kalau ada, biar gak dobel
-          sed -i '/CONFIG_LOCALVERSION/d' arch/arm64/configs/defconfig
           echo 'CONFIG_LOCALVERSION="-EvolutionX_cepheus_v3.2.0_KSUN"' >> arch/arm64/configs/defconfig
           grep "CONFIG_LOCALVERSION" arch/arm64/configs/defconfig
 
@@ -122,7 +112,12 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-gnu-
           export USE_CCACHE=1
 
-          make O=out ARCH=arm64 defconfig
+          mkdir -p out
+          bash scripts/kconfig/merge_config.sh -O out \
+            arch/arm64/configs/defconfig \
+            arch/arm64/configs/vendor/sm8150-perf_defconfig \
+            arch/arm64/configs/vendor/xiaomi/sm8150-common.config \
+            arch/arm64/configs/vendor/xiaomi/cepheus.config
 
           make ARCH=arm64 \
                O=out \
