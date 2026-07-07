@@ -166,6 +166,15 @@ jobs:
           which dtc || echo "dtc system tidak ada di PATH"
           find . -name "dtc" -type f -executable 2>/dev/null
       
+      - name: Cek flag -@ overlay di build system dtc
+        run: |
+          cd kernel
+          echo "=== Cari '-@' atau 'DTC_FLAGS' terkait overlay ==="
+          grep -n "\-@" arch/arm64/boot/dts/qcom/Makefile scripts/Makefile.lib scripts/Makefile.build 2>/dev/null
+          echo ""
+          echo "=== Isi lengkap scripts/Makefile.lib bagian dtc ==="
+          grep -n -A 10 "cmd_dtc\b" scripts/Makefile.lib
+      
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
