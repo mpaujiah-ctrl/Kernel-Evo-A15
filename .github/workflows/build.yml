@@ -156,6 +156,16 @@ jobs:
           echo "=== Sesudah (harusnya 0) ==="
           grep -c "andromeda" arch/arm64/boot/dts/qcom/Makefile || echo "0 (bersih)"
 
+      - name: Cek flag -@ (overlay support) di Makefile.dtbo
+        run: |
+          cd kernel
+          echo "=== Isi scripts/Makefile.dtbo ==="
+          cat scripts/Makefile.dtbo
+          echo ""
+          echo "=== Versi dtc yang dipakai (in-tree vs system) ==="
+          which dtc || echo "dtc system tidak ada di PATH"
+          find . -name "dtc" -type f -executable 2>/dev/null
+      
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
