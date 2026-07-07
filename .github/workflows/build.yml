@@ -170,10 +170,13 @@ jobs:
         run: |
           cd kernel
           echo "=== Cari '-@' atau 'DTC_FLAGS' terkait overlay ==="
-          grep -n "\-@" arch/arm64/boot/dts/qcom/Makefile scripts/Makefile.lib scripts/Makefile.build 2>/dev/null
+          grep -n "\-@" arch/arm64/boot/dts/qcom/Makefile scripts/Makefile.lib scripts/Makefile.build 2>/dev/null || echo "(tidak ketemu)"
           echo ""
-          echo "=== Isi lengkap scripts/Makefile.lib bagian dtc ==="
-          grep -n -A 10 "cmd_dtc\b" scripts/Makefile.lib
+          echo "=== Definisi cmd_dtc di Makefile.lib ==="
+          grep -n -A 12 "^cmd_dtc" scripts/Makefile.lib || echo "(cmd_dtc tidak ketemu)"
+          echo ""
+          echo "=== Definisi DTC_FLAGS ==="
+          grep -n "DTC_FLAGS" scripts/Makefile.lib arch/arm64/boot/dts/qcom/Makefile 2>/dev/null || echo "(DTC_FLAGS tidak ketemu)"
       
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
