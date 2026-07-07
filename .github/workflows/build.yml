@@ -203,8 +203,16 @@ jobs:
         if: always()
         run: |
           cd kernel
-          echo "=== Context sekitar cepheus-pinctrl.dtsi di file .tmp ==="
-          grep -n "cepheus-pinctrl.dtsi" -A 15 arch/arm64/boot/dts/qcom/.cepheus-sm8150-overlay.dtbo.dts.tmp | head -60
+          echo "=== Cari file .tmp yang beneran ada ==="
+          find out -iname "*cepheus-sm8150-overlay*tmp*" 2>/dev/null
+          echo ""
+          echo "=== Context sekitar cepheus-pinctrl.dtsi ==="
+          TMPFILE=$(find out -iname "*cepheus-sm8150-overlay.dtbo.dts.tmp" 2>/dev/null | head -1)
+          if [ -n "$TMPFILE" ]; then
+            grep -n "cepheus-pinctrl.dtsi" -A 15 "$TMPFILE" | head -60
+          else
+            echo "File tmp tidak ditemukan, kemungkinan sudah dibersihkan otomatis oleh make."
+          fi
 
       - name: Pack AnyKernel3
         run: |
