@@ -112,6 +112,18 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep -c "susfs" fs/proc/task_mmu.c
                   
+      - name: Fix typo bug ptep->pte di hugetlbpage.c
+        run: |
+          cd kernel
+          sed -i 's/ptep = huge_pmd_share(mm, vma, addr, pud);/pte = huge_pmd_share(mm, vma, addr, pud);/' arch/arm64/mm/hugetlbpage.c
+          grep -n "huge_pmd_share(mm, vma, addr, pud)" arch/arm64/mm/hugetlbpage.c
+
+      - name: Fix pids[PIDTYPE_PID] -> task_pid() di kvm_main.c
+        run: |
+          cd kernel
+          sed -i 's/current->pids\[PIDTYPE_PID\]\.pid/task_pid(current)/' virt/kvm/kvm_main.c
+          grep -n "task_pid(current)" virt/kvm/kvm_main.c
+      
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
