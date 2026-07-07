@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Clone kernel source (raystef66, branch 15.0)
-        run: git clone --depth=1 -b 15.0 https://github.com/raystef66/kernel_xiaomi_cepheus kernel
+        run: git clone --depth=1 -b 15.0 https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
 
       - name: Upgrade KernelSU-Next dari v1.39 (81dff86) ke v3.2.0 (00cb93e)
         run: |
