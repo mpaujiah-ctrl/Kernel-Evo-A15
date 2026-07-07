@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Clone kernel source (raystef66, branch 15.0)
-        run: git clone --depth=1 -b bka https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
+        run: git clone --depth=1 -b vic https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
 
       - name: Upgrade KernelSU-Next dari v1.39 (81dff86) ke v3.2.0 (00cb93e)
         run: |
@@ -22,36 +22,22 @@ jobs:
           tar -xzf ksun.tar.gz -C KernelSU-Next --strip-components=1
           rm ksun.tar.gz
           ls KernelSU-Next/kernel/
-
       - name: Fix KSU_VERSION fallback (karena pakai tarball, bukan git clone)
         run: |
           cd kernel
           sed -i 's/KSU_VERSION_FALLBACK := 1/KSU_VERSION_FALLBACK := 33129/' KernelSU-Next/kernel/Kbuild
           grep "KSU_VERSION_FALLBACK" KernelSU-Next/kernel/Kbuild
-
+      
       - name: Update defconfig localversion
         run: |
           cd kernel
-          echo 'CONFIG_LOCALVERSION="-EvolutionX_cepheus_v3.2.0_KSUN"' >> arch/arm64/configs/defconfig
-          grep "CONFIG_LOCALVERSION" arch/arm64/configs/defconfig
-
-      - name: Install toolchain (clang-19 + GNU cross-compiler)
+          sed -i 's/CONFIG_LOCALVERSION="-InfiniR_cepheus_v1.39_KSUN"/CONFIG_LOCALVERSION="-EvolutionX_cepheus_v3.2.0_KSUN"/' arch/arm64/configs/cepheus_defconfig
+          grep "CONFIG_LOCALVERSION" arch/arm64/configs/cepheus_defconfig
+      - name: Install toolchain (clang + GNU cross-compiler)
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 19
           sudo apt update
-          sudo apt install -y clang-19 lld-19 llvm-19 bc bison flex libssl-dev libelf-dev build-essential
+          sudo apt install -y clang lld llvm bc bison flex libssl-dev libelf-dev build-essential
           sudo apt install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
-          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-19 100
-          sudo update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-19 100
-          sudo update-alternatives --install /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-19 100
-          sudo update-alternatives --install /usr/bin/llvm-objcopy llvm-objcopy /usr/bin/llvm-objcopy-19 100
-          sudo update-alternatives --install /usr/bin/llvm-objdump llvm-objdump /usr/bin/llvm-objdump-19 100
-          sudo update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-19 100
-
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
 
@@ -61,13 +47,13 @@ jobs:
           cat > scripts/dtc/yamltree.c << 'CEOF'
           #include <stdio.h>
           #include <stdlib.h>
-
+          
           struct dt_info;
-
+          
           void dt_to_yaml(FILE *outf, struct dt_info *dti) {}
           CEOF
           echo "yamltree.c replaced with stub"
-
+      
       - name: Inject manual hook ke kernel/reboot.c (required by KSUN 3.2.0 Kbuild check)
         run: |
           cd kernel
@@ -79,7 +65,7 @@ jobs:
           else
             echo "=== Hook sudah ada ==="
           fi
-
+      
       - name: Commit perubahan lokal sebelum cherry-pick
         run: |
           cd kernel
@@ -87,7 +73,7 @@ jobs:
           git config user.name "CI Build"
           git add -A
           git commit -m "local changes: defconfig + reboot.c hook" || echo "nothing to commit"
-
+      
       - name: Upgrade SUSFS ke v2.1.0 (sinkron sama KSUN 3.2.0)
         run: |
           cd kernel
@@ -95,80 +81,17 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs.h" -o include/linux/susfs.h
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs_def.h" -o include/linux/susfs_def.h
           grep "SUSFS_VERSION" include/linux/susfs.h
-
-      # NOTE: Step sync fs/stat.c dan fs/proc/task_mmu.c dari raystef66/16.0-ksun
-      # DIHAPUS karena base kernel branch tersebut beda dari branch 'bka' (Evolution-X).
-      # File itu pakai API yang gak ada di kernel ini (nr_ptes, old_cpus_allowed,
-      # vm_write_begin/end, sched_migrate_to_cpumask, mm_nr_pmds), jadi malah bikin
-      # error bertumpuk. Biarkan fs/stat.c dan fs/proc/task_mmu.c pakai versi asli
-      # bawaan branch 'bka'. Kalau SUSFS memang butuh hook di file ini, harus pakai
-      # patch/diff resmi yang dibuat khusus untuk base kernel ini, bukan copy file utuh.
-
-      - name: Fix nr_ptes -> mm_dec_nr_ptes() di khugepaged.c
+      - name: Sinkronkan fs/stat.c dengan SUSFS v2.1.0 (fix undefined symbol)
         run: |
           cd kernel
-          grep -n "mm_dec_nr_ptes\|mm_inc_nr_ptes" include/linux/mm.h || echo "WARNING: helper tidak ditemukan di mm.h"
-          sed -i 's/atomic_long_dec(&mm->nr_ptes);/mm_dec_nr_ptes(mm);/' mm/khugepaged.c
-          grep -n "nr_ptes\|mm_dec_nr_ptes" mm/khugepaged.c
-
-      - name: Fix typo bug ptep->pte di hugetlbpage.c
+          curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/stat.c" -o fs/stat.c
+          grep -c "susfs" fs/stat.c
+      - name: Sinkronkan fs/proc/task_mmu.c juga (biasanya sepaket sama stat.c)
         run: |
           cd kernel
-          sed -i 's/ptep = huge_pmd_share(mm, vma, addr, pud);/pte = huge_pmd_share(mm, vma, addr, pud);/' arch/arm64/mm/hugetlbpage.c
-
-      - name: Fix pids[PIDTYPE_PID] -> task_pid() di kvm_main.c
-        run: |
-          cd kernel
-          sed -i 's/current->pids\[PIDTYPE_PID\]\.pid/task_pid(current)/' virt/kvm/kvm_main.c
-
-      - name: Fix try_to_unmap() missing vma argument di huge_memory.c
-        run: |
-          cd kernel
-          sed -i 's/try_to_unmap(page, ttu_flags);/try_to_unmap(page, ttu_flags, NULL);/' mm/huge_memory.c
-
-      - name: Fix duplicate 'event' declaration di trace_event_perf.c
-        run: |
-          cd kernel
-          python3 ../fix_trace_event_perf.py
-
-      - name: Fix argument order split_huge_pmd di task_mmu.c
-        run: |
-          cd kernel
-          sed -i 's/split_huge_pmd(vma, addr, pmd);/split_huge_pmd(vma, pmd, addr);/' fs/proc/task_mmu.c
-
-      - name: Fix typo #elif jadi #else di sysstats_fill_zoneinfo (taskstats.c)
-        run: |
-          cd kernel
-          sed -i '0,/^#elif$/{s/^#elif$/#else/}' kernel/taskstats.c
-          grep -n "^#else$\|^#elif$" kernel/taskstats.c
-
-      - name: Relax implicit-function-declaration jadi warning (clang 19 lebih strict)
-        run: |
-          cd kernel
-          echo 'KBUILD_CFLAGS += -Wno-error=implicit-function-declaration' >> Makefile
-
-      - name: Exclude andromeda overlay (device lain, dtsi rusak) dari Makefile dtb
-        run: |
-          cd kernel
-          echo "=== Sebelum ==="
-          grep -c "andromeda" arch/arm64/boot/dts/qcom/Makefile
-          sed -i '/andromeda/d' arch/arm64/boot/dts/qcom/Makefile
-          echo "=== Sesudah (harusnya 0) ==="
-          grep -c "andromeda" arch/arm64/boot/dts/qcom/Makefile || echo "0 (bersih)"
-
-      - name: Fix flag -@ overlay di scripts/Makefile.lib (fix .dtbo parsing)
-        run: |
-          cd kernel
-          python3 ../fix_dtc_overlay.py
-          echo "=== Verifikasi ==="
-          grep -n "filter %.dtbo" scripts/Makefile.lib || echo "WARNING: patch tidak terpasang"
-
-      - name: Install dtc sistem terbaru (in-tree dtc terlalu lama, gak support &label overlay)
-        run: |
-          sudo apt update
-          sudo apt install -y device-tree-compiler
-          dtc --version
-
+          curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
+          grep -c "susfs" fs/proc/task_mmu.c
+                  
       - name: Build kernel (pakai flag dari build.sh asli raystef66)
         run: |
           cd kernel
@@ -183,14 +106,7 @@ jobs:
           export STRIP=llvm-strip
           export CROSS_COMPILE=aarch64-linux-gnu-
           export USE_CCACHE=1
-
-          mkdir -p out
-          bash scripts/kconfig/merge_config.sh -O out \
-            arch/arm64/configs/defconfig \
-            arch/arm64/configs/vendor/sm8150-perf_defconfig \
-            arch/arm64/configs/vendor/xiaomi/sm8150-common.config \
-            arch/arm64/configs/vendor/xiaomi/cepheus.config
-
+          make O=out ARCH=arm64 cepheus_defconfig
           make ARCH=arm64 \
                O=out \
                CC=clang \
@@ -200,32 +116,13 @@ jobs:
                OBJCOPY=llvm-objcopy \
                OBJDUMP=llvm-objdump \
                STRIP=llvm-strip \
-               DTC=$(which dtc) \
                -j$(nproc --all) Image.gz-dtb
-
           echo "=== Verify Image.gz-dtb ==="
           ls out/arch/arm64/boot/Image.gz-dtb
-
-      - name: Debug - lihat isi preprocessed dts di sekitar cepheus-pinctrl.dtsi
-        if: always()
-        run: |
-          cd kernel
-          echo "=== Cari file .tmp yang beneran ada ==="
-          find out -iname "*cepheus-sm8150-overlay*tmp*" 2>/dev/null
-          echo ""
-          echo "=== Context sekitar cepheus-pinctrl.dtsi ==="
-          TMPFILE=$(find out -iname "*cepheus-sm8150-overlay.dtbo.dts.tmp" 2>/dev/null | head -1)
-          if [ -n "$TMPFILE" ]; then
-            grep -n "cepheus-pinctrl.dtsi" -A 15 "$TMPFILE" | head -60
-          else
-            echo "File tmp tidak ditemukan, kemungkinan sudah dibersihkan otomatis oleh make."
-          fi
-
       - name: Pack AnyKernel3
         run: |
           cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
           cd AnyKernel3 && zip -r9 ../Evo_cepheus_v3.2.0_KSUN.zip * -x README
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
