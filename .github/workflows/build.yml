@@ -104,6 +104,13 @@ jobs:
       # bawaan branch 'bka'. Kalau SUSFS memang butuh hook di file ini, harus pakai
       # patch/diff resmi yang dibuat khusus untuk base kernel ini, bukan copy file utuh.
 
+      - name: Fix nr_ptes -> mm_dec_nr_ptes() di khugepaged.c
+        run: |
+          cd kernel
+          grep -n "mm_dec_nr_ptes\|mm_inc_nr_ptes" include/linux/mm.h || echo "WARNING: helper tidak ditemukan di mm.h"
+          sed -i 's/atomic_long_dec(&mm->nr_ptes);/mm_dec_nr_ptes(mm);/' mm/khugepaged.c
+          grep -n "nr_ptes\|mm_dec_nr_ptes" mm/khugepaged.c
+      
       - name: Fix typo bug ptep->pte di hugetlbpage.c
         run: |
           cd kernel
