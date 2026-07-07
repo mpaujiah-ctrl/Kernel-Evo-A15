@@ -126,20 +126,7 @@ jobs:
       - name: Fix duplicate 'event' declaration di trace_event_perf.c
         run: |
           cd kernel
-          python3 -c "
-          with open('kernel/trace/trace_event_perf.c') as f:
-              content = f.read()
-          old = '''\tstruct perf_event *event;
-          \tstruct ftrace_entry *entry;
-          \tstruct perf_event *event;
-          \tstruct hlist_head head;'''
-                    new = '''\tstruct perf_event *event;
-          \tstruct ftrace_entry *entry;
-          \tstruct hlist_head head;'''
-          content = content.replace(old, new, 1)
-          with open('kernel/trace/trace_event_perf.c', 'w') as f:
-              f.write(content)
-          "
+          python3 ../fix_trace_event_perf.py
 
       - name: Fix argument order split_huge_pmd di task_mmu.c
         run: |
