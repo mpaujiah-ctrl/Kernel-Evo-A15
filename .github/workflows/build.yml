@@ -112,6 +112,15 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep -c "susfs" fs/proc/task_mmu.c
                   
+      - name: DEBUG - cek konteks split_huge_pmd di task_mmu.c
+        run: |
+          cd kernel
+          echo "=== Baris 1700-1725 task_mmu.c ==="
+          sed -n '1700,1725p' fs/proc/task_mmu.c
+          echo ""
+          echo "=== Definisi split_huge_pmd di huge_mm.h ==="
+          grep -n -A 15 "define split_huge_pmd" include/linux/huge_mm.h
+      
       - name: Fix typo bug ptep->pte di hugetlbpage.c
         run: |
           cd kernel
