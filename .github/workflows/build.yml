@@ -1,9 +1,7 @@
 name: Kernel Build Test (cepheus - vic, clean/no patch)
 
 on:
-  workflow_dispatch:      # bisa di-trigger manual dari tab Actions
-  push:
-    branches: [ main ]    # otomatis jalan tiap push ke branch main repo CI ini
+  workflow_dispatch:      # cuma bisa di-trigger manual dari tab Actions
 
 env:
   KERNEL_REPO: https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus
@@ -83,6 +81,11 @@ jobs:
           echo "--- arm32 linker ---"
           which arm-linux-gnueabi-ld
           arm-linux-gnueabi-ld --version | head -1
+          echo "--- host system linker (buat host tool spt dtc) ---"
+          /usr/bin/ld --version | head -1
+          echo "--- libyaml header & lib ---"
+          ls -la /usr/include/yaml.h
+          find /usr/lib -name "libyaml*" 2>/dev/null
 
       - name: Generate defconfig
         working-directory: kernel
@@ -93,6 +96,7 @@ jobs:
           make O=out \
             ARCH=${ARCH} SUBARCH=${SUBARCH} \
             CC="ccache clang" \
+            HOSTLD=/usr/bin/ld \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
@@ -109,6 +113,7 @@ jobs:
           make O=out -j"$(nproc)" \
             ARCH=${ARCH} SUBARCH=${SUBARCH} \
             CC="ccache clang" \
+            HOSTLD=/usr/bin/ld \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
