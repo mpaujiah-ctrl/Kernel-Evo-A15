@@ -30,10 +30,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            bc bison flex libssl-dev libelf-dev \
+            bc bison flex libssl-dev libelf-dev libyaml-dev \
             build-essential python3 python-is-python3 \
             git curl zip unzip \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi \
             ccache
 
       - name: Clone kernel source (clean, no patch)
@@ -74,6 +75,15 @@ jobs:
           restore-keys: |
             ccache-cepheus-vic-
 
+      - name: Verify cross toolchain is correct
+        run: |
+          echo "--- aarch64 linker ---"
+          which aarch64-linux-gnu-ld
+          aarch64-linux-gnu-ld --version | head -1
+          echo "--- arm32 linker ---"
+          which arm-linux-gnueabi-ld
+          arm-linux-gnueabi-ld --version | head -1
+
       - name: Generate defconfig
         working-directory: kernel
         shell: bash
@@ -86,6 +96,8 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
+            LD=ld.lld \
+            LD_COMPAT=arm-linux-gnueabi-ld \
             ${DEFCONFIG}
 
       - name: Build kernel (compile test)
@@ -100,7 +112,8 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
-            LD=ld.lld 2>&1 | tee out/build.log
+            LD=ld.lld \
+            LD_COMPAT=arm-linux-gnueabi-ld 2>&1 | tee out/build.log
 
       - name: Verify output image exists
         working-directory: kernel
