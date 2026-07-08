@@ -1,4 +1,4 @@
-name: Kernel Evo A15 - Baseline Test (tanpa upgrade KSUN)
+name: Kernel Evo A15 - Baseline Test (clang AOSP r536225)
 
 on:
   workflow_dispatch:
@@ -13,10 +13,17 @@ jobs:
       - name: Clone kernel source (Evolution-X, branch vic)
         run: git clone --depth=1 -b vic https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
 
-      - name: Install toolchain (clang + GNU cross-compiler)
+      - name: Download & extract clang AOSP r536225 (toolchain resmi, bukan clang distro)
+        run: |
+          mkdir -p clang-r536225
+          curl -sL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r536225.tar.gz" | tar -xz -C clang-r536225
+          echo "=== Verify clang ==="
+          ./clang-r536225/bin/clang --version
+
+      - name: Install GNU cross-compiler (buat CROSS_COMPILE_ARM32 & binutils)
         run: |
           sudo apt update
-          sudo apt install -y clang lld llvm bc bison flex libssl-dev libelf-dev build-essential
+          sudo apt install -y bc bison flex libssl-dev libelf-dev build-essential
           sudo apt install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
       - name: Clone AnyKernel3
@@ -35,18 +42,10 @@ jobs:
           CEOF
           echo "yamltree.c replaced with stub"
 
-      - name: Cek versi KSUN default yang sudah ada di repo (info saja)
+      - name: Build kernel (BASELINE - pakai clang AOSP r536225, tanpa modifikasi KSUN)
         run: |
           cd kernel
-          echo "=== Isi folder KernelSU-Next bawaan repo ==="
-          ls -la KernelSU-Next/ 2>/dev/null || echo "Folder KernelSU-Next tidak ada"
-          echo ""
-          echo "=== Cek CONFIG_KSU di cepheus_defconfig bawaan ==="
-          grep "CONFIG_KSU" arch/arm64/configs/cepheus_defconfig || echo "CONFIG_KSU tidak diset"
-
-      - name: Build kernel (BASELINE - tanpa modifikasi KSUN apapun)
-        run: |
-          cd kernel
+          export PATH="${GITHUB_WORKSPACE}/clang-r536225/bin:${PATH}"
           export ARCH=arm64
           export LLVM=1
           export CC=clang
@@ -57,6 +56,7 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export USE_CCACHE=1
           make O=out ARCH=arm64 cepheus_defconfig
           make ARCH=arm64 \
@@ -75,13 +75,13 @@ jobs:
       - name: Pack AnyKernel3
         run: |
           cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
-          cd AnyKernel3 && zip -r9 ../Evo_cepheus_BASELINE_test.zip * -x README
+          cd AnyKernel3 && zip -r9 ../Evo_cepheus_BASELINE_clangAOSP_test.zip * -x README
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Evo-cepheus-BASELINE-test
+          name: Evo-cepheus-BASELINE-clangAOSP-test
           path: |
-            Evo_cepheus_BASELINE_test.zip
+            Evo_cepheus_BASELINE_clangAOSP_test.zip
             kernel/out/arch/arm64/boot/Image.gz-dtb
             
