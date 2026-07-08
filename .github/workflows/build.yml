@@ -1,143 +1,145 @@
-name: Kernel Evo A15 - Upgrade KSUN 3.2.0
+name: Kernel Build Test (cepheus - vic, clean/no patch)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:      # bisa di-trigger manual dari tab Actions
+  push:
+    branches: [ main ]    # otomatis jalan tiap push ke branch main repo CI ini
+
+env:
+  KERNEL_REPO: https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus
+  KERNEL_BRANCH: vic
+  DEFCONFIG: cepheus_defconfig
+  ARCH: arm64
+  SUBARCH: arm64
+  CLANG_REPO: https://gitlab.com/jjpprrrr/prelude-clang.git
+  ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3
+  ANYKERNEL_BRANCH: master
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Clone kernel source (Evolution-X, branch vic)
-        run: git clone --depth=1 -b vic https://github.com/Evolution-X-Devices/kernel_xiaomi_cepheus kernel
-
-      - name: Upgrade KernelSU-Next ke v3.2.0 (pakai setup.sh resmi, bukan manual tarball)
+      - name: Free up disk space
         run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/local/lib/android
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison flex libssl-dev libelf-dev \
+            build-essential python3 python-is-python3 \
+            git curl zip unzip \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            ccache
+
+      - name: Clone kernel source (clean, no patch)
+        run: |
+          git clone --depth=1 -b "${KERNEL_BRANCH}" "${KERNEL_REPO}" kernel
           cd kernel
-          rm -rf KernelSU-Next
-          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s 00cb93e0bc8bf3ca3680c7e8a3d7cf11d0b59071
-          ls KernelSU-Next/kernel/
-          echo "=== Cek versi git asli (harusnya gak butuh fallback lagi) ==="
-          cd KernelSU-Next && git describe --tags --always 2>/dev/null || echo "git describe gagal"
+          echo "Commit yang dipakai:"
+          git log -1 --oneline
 
-      - name: Update defconfig localversion
+      - name: Clone Clang toolchain
         run: |
-          cd kernel
-          sed -i 's/CONFIG_LOCALVERSION="-InfiniR_cepheus_v1.39_KSUN"/CONFIG_LOCALVERSION="-EvolutionX_cepheus_v3.2.0_KSUN"/' arch/arm64/configs/cepheus_defconfig
-          grep "CONFIG_LOCALVERSION" arch/arm64/configs/cepheus_defconfig
-
-      - name: Pastikan CONFIG_KSU=y aktif di cepheus_defconfig
-        run: |
-          cd kernel
-          grep -q "^CONFIG_KSU=y" arch/arm64/configs/cepheus_defconfig || echo "CONFIG_KSU=y" >> arch/arm64/configs/cepheus_defconfig
-          grep "CONFIG_KSU" arch/arm64/configs/cepheus_defconfig
-
-      - name: Install toolchain (clang + GNU cross-compiler)
-        run: |
-          sudo apt update
-          sudo apt install -y clang lld llvm bc bison flex libssl-dev libelf-dev build-essential
-          sudo apt install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+          git clone --depth=1 "${CLANG_REPO}" clang
 
       - name: Clone AnyKernel3
-        run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
-
-      - name: Fix yamltree.c (stub kosong, solusi dari TURTLE)
         run: |
-          cd kernel
-          cat > scripts/dtc/yamltree.c << 'CEOF'
-          #include <stdio.h>
-          #include <stdlib.h>
+          git clone --depth=1 -b "${ANYKERNEL_BRANCH}" "${ANYKERNEL_REPO}" anykernel
 
-          struct dt_info;
-
-          void dt_to_yaml(FILE *outf, struct dt_info *dti) {}
-          CEOF
-          echo "yamltree.c replaced with stub"
-
-      - name: Inject manual hook ke kernel/reboot.c (required by KSUN 3.2.0 Kbuild check)
+      - name: Configure anykernel.sh for cepheus (A/B slot device)
         run: |
-          cd kernel
-          if ! grep -q "ksu_handle_sys_reboot" kernel/reboot.c; then
-            sed -i '/^SYSCALL_DEFINE4(reboot/i #ifdef CONFIG_KSU\nextern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg4);\n#endif' kernel/reboot.c
-            sed -i '/if (magic1 != LINUX_REBOOT_MAGIC1/i \\t#ifdef CONFIG_KSU\n\tksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);\n\t#endif' kernel/reboot.c
-            echo "=== Hook injected ==="
-            grep -n "ksu_handle_sys_reboot\|CONFIG_KSU" kernel/reboot.c
+          cd anykernel
+          sed -i 's/^BLOCK=.*/BLOCK=\/dev\/block\/bootdevice\/by-name\/boot;/' anykernel.sh
+          sed -i 's/^IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=1;/' anykernel.sh
+          sed -i "s/^kernel\.string=.*/kernel.string=Evolution-X cepheus vic (no patch, CI build)/" anykernel.sh
+          sed -i 's/^device\.name1=.*/device.name1=cepheus;/' anykernel.sh
+          echo "--- Cek hasil konfigurasi anykernel.sh ---"
+          grep -E "^(BLOCK|IS_SLOT_DEVICE|kernel.string|device.name1)=" anykernel.sh
+
+      - name: Setup ccache
+        run: |
+          echo "CCACHE_DIR=${HOME}/.ccache" >> "$GITHUB_ENV"
+          mkdir -p "${HOME}/.ccache"
+
+      - name: Cache ccache directory
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-cepheus-vic-${{ github.run_id }}
+          restore-keys: |
+            ccache-cepheus-vic-
+
+      - name: Generate defconfig
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          export PATH="${GITHUB_WORKSPACE}/clang/bin:${PATH}"
+          make O=out \
+            ARCH=${ARCH} SUBARCH=${SUBARCH} \
+            CC="ccache clang" \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            ${DEFCONFIG}
+
+      - name: Build kernel (compile test)
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          export PATH="${GITHUB_WORKSPACE}/clang/bin:${PATH}"
+          make O=out -j"$(nproc)" \
+            ARCH=${ARCH} SUBARCH=${SUBARCH} \
+            CC="ccache clang" \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            LD=ld.lld 2>&1 | tee out/build.log
+
+      - name: Verify output image exists
+        working-directory: kernel
+        run: |
+          IMG="out/arch/arm64/boot/Image.gz-dtb"
+          if [ -f "$IMG" ]; then
+            echo "BUILD OK: $IMG berhasil dibuat"
+            ls -la "$IMG"
           else
-            echo "=== Hook sudah ada ==="
+            echo "BUILD GAGAL: Image.gz-dtb tidak ditemukan"
+            echo "Cek out/build.log untuk detail error"
+            exit 1
           fi
 
-      - name: Commit perubahan lokal sebelum cherry-pick
-        run: |
-          cd kernel
-          git config user.email "ci@build.local"
-          git config user.name "CI Build"
-          git add -A
-          git commit -m "local changes: defconfig + reboot.c hook" || echo "nothing to commit"
-
-      # ==== DINONAKTIFKAN SEMENTARA UNTUK BISECTION BOOTLOOP ====
-      # SUSFS v2.1.0 sync dari raystef66/16.0-ksun (branch/repo BEDA dari vic).
-      # Diduga jadi penyebab bootloop karena mismatch struktur kernel saat runtime,
-      # walau kompilasinya sukses. Test dulu build TANPA SUSFS ini.
-      # - name: Upgrade SUSFS ke v2.1.0 (sinkron sama KSUN 3.2.0)
-      #   run: |
-      #     cd kernel
-      #     curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/susfs.c" -o fs/susfs.c
-      #     curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs.h" -o include/linux/susfs.h
-      #     curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs_def.h" -o include/linux/susfs_def.h
-      #     grep "SUSFS_VERSION" include/linux/susfs.h
-      #
-      # - name: Sinkronkan fs/stat.c dengan SUSFS v2.1.0 (fix undefined symbol)
-      #   run: |
-      #     cd kernel
-      #     curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/stat.c" -o fs/stat.c
-      #     grep -c "susfs" fs/stat.c
-      #
-      # - name: Sinkronkan fs/proc/task_mmu.c juga (biasanya sepaket sama stat.c)
-      #   run: |
-      #     cd kernel
-      #     curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
-      #     grep -c "susfs" fs/proc/task_mmu.c
-
-      - name: Build kernel (pakai flag dari build.sh asli raystef66)
-        run: |
-          cd kernel
-          export ARCH=arm64
-          export LLVM=1
-          export CC=clang
-          export AR=llvm-ar
-          export LD=ld.lld
-          export NM=llvm-nm
-          export OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump
-          export STRIP=llvm-strip
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export USE_CCACHE=1
-          make O=out ARCH=arm64 cepheus_defconfig
-          make ARCH=arm64 \
-               O=out \
-               CC=clang \
-               AR=llvm-ar \
-               LD=ld.lld \
-               NM=llvm-nm \
-               OBJCOPY=llvm-objcopy \
-               OBJDUMP=llvm-objdump \
-               STRIP=llvm-strip \
-               -j$(nproc --all) Image.gz-dtb
-          echo "=== Verify Image.gz-dtb ==="
-          ls out/arch/arm64/boot/Image.gz-dtb
-
-      - name: Pack AnyKernel3
-        run: |
-          cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
-          cd AnyKernel3 && zip -r9 ../Evo_cepheus_v3.2.0_KSUN.zip * -x README
-
-      - name: Upload artifact
+      - name: Upload build log (selalu, buat debug kalau gagal)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Evo-cepheus-v3.2.0-KSUN
-          path: |
-            Evo_cepheus_v3.2.0_KSUN.zip
-            kernel/out/arch/arm64/boot/Image.gz-dtb
-            
+          name: build-log
+          path: kernel/out/build.log
+          retention-days: 7
+
+      - name: Package flashable zip (AnyKernel3)
+        if: success()
+        run: |
+          cp kernel/out/arch/arm64/boot/Image.gz-dtb anykernel/Image.gz-dtb
+          # dtbo.img opsional, sertakan kalau ada
+          if [ -f kernel/out/arch/arm64/boot/dtbo.img ]; then
+            cp kernel/out/arch/arm64/boot/dtbo.img anykernel/dtbo.img
+          fi
+          cd anykernel
+          ZIP_NAME="cepheus-vic-nopatch-$(date +%Y%m%d-%H%M).zip"
+          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+          zip -r9 "../${ZIP_NAME}" . -x ".git*" -x "README.md"
+
+      - name: Upload flashable zip
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 14
