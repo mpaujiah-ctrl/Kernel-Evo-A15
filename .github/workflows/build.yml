@@ -16,7 +16,10 @@ jobs:
       - name: Download & extract clang AOSP r536225 (toolchain resmi, bukan clang distro)
         run: |
           mkdir -p clang-r536225
-          curl -sL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r536225.tar.gz" | tar -xz -C clang-r536225
+          curl -sL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz" -o clang-r536225.tar.gz
+          file clang-r536225.tar.gz
+          tar -xzf clang-r536225.tar.gz -C clang-r536225
+          rm clang-r536225.tar.gz
           echo "=== Verify clang ==="
           ./clang-r536225/bin/clang --version
 
