@@ -96,7 +96,8 @@ jobs:
           make O=out \
             ARCH=${ARCH} SUBARCH=${SUBARCH} \
             CC="ccache clang" \
-            HOSTLD=/usr/bin/ld \
+            HOSTCC=gcc \
+            HOSTCXX=g++ \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
@@ -113,7 +114,8 @@ jobs:
           make O=out -j"$(nproc)" \
             ARCH=${ARCH} SUBARCH=${SUBARCH} \
             CC="ccache clang" \
-            HOSTLD=/usr/bin/ld \
+            HOSTCC=gcc \
+            HOSTCXX=g++ \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
