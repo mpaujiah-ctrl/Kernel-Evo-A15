@@ -23,11 +23,12 @@ jobs:
           echo "=== Verify clang ==="
           ./clang-r536225/bin/clang --version
 
-      - name: Install GNU cross-compiler (buat CROSS_COMPILE_ARM32 & binutils)
+      - name: Install dependencies build (TANPA gcc-aarch64, pakai binutils bawaan clang)
         run: |
           sudo apt update
           sudo apt install -y bc bison flex libssl-dev libelf-dev build-essential
-          sudo apt install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+          echo "=== Cek binutils bawaan clang-r536225 ==="
+          ls clang-r536225/bin/ | grep -E "aarch64-linux-gnu-|arm-linux-gnueabi-" | head -20
 
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
@@ -58,8 +59,8 @@ jobs:
           export OBJCOPY=llvm-objcopy
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CROSS_COMPILE="${GITHUB_WORKSPACE}/clang-r536225/bin/aarch64-linux-gnu-"
+          export CROSS_COMPILE_ARM32="${GITHUB_WORKSPACE}/clang-r536225/bin/arm-linux-gnueabi-"
           export USE_CCACHE=1
           make O=out ARCH=arm64 cepheus_defconfig
           make ARCH=arm64 \
@@ -87,4 +88,3 @@ jobs:
           path: |
             Evo_cepheus_BASELINE_clangAOSP_test.zip
             kernel/out/arch/arm64/boot/Image.gz-dtb
-            
