@@ -1,4 +1,4 @@
-name: Kernel Evo A15 (vic) - KSUN v3.2.0 (kprobe) + SUSFS
+name: Kernel Evo A15 (vic) - KSUN legacy + SUSFS
 
 on:
   workflow_dispatch:
@@ -22,10 +22,12 @@ jobs:
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
 
-      - name: Install KernelSU-Next pinned ke commit 00cb93e / v3.2.0
+      - name: Install KernelSU-Next (legacy mode untuk non-GKI)
         run: |
           cd kernel
-          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s 00cb93e0bc8bf3ca3680c7e8a3d7cf11d0b59071
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+          echo "=== Verify syscall_fn_t terdefinisi ==="
+          grep -rn "syscall_fn_t" KernelSU-Next/ | head -5
           echo "=== Verify wiring ==="
           grep -n "kernelsu" drivers/Makefile drivers/Kconfig
 
