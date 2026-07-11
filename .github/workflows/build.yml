@@ -72,11 +72,15 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep "SUSFS_VERSION" include/linux/susfs.h
 
-      - name: Debug - cari opsi Kconfig terkait hook manual
+      - name: Debug - cari opsi Kconfig dan definisi fungsi hook
         run: |
           cd kernel
-          grep -rn "MANUAL\|HOOK" KernelSU-Next/kernel/Kconfig
-          find KernelSU-Next/kernel/hook -type f -name "*.c" | head -20
+          echo "=== Isi lengkap Kconfig ==="
+          cat KernelSU-Next/kernel/Kconfig || true
+          echo "=== Cari definisi ksu_handle_sys_reboot di seluruh source ==="
+          grep -rn "ksu_handle_sys_reboot" KernelSU-Next/ || echo "TIDAK DITEMUKAN sama sekali"
+          echo "=== Isi folder hook/ ==="
+          find KernelSU-Next/kernel/hook -type f || true
       
       - name: Build kernel
         run: |
