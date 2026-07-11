@@ -61,10 +61,28 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep "SUSFS_VERSION" include/linux/susfs.h
 
-      - name: Debug - cek opsi disable fitur input/umount
-        run: |
-          cd kernel
-          find KernelSU-Next/kernel/feature -name "Kconfig" -exec cat {} \;
+      - name: Debug lengkap - fitur input/umount dan opsi disable
+  run: |
+    cd kernel
+    echo "=== SEMUA file Kconfig di KernelSU-Next ==="
+    find KernelSU-Next -name "Kconfig" -exec echo "--- {} ---" \; -exec cat {} \;
+    
+    echo ""
+    echo "=== Cari kata kunci UMOUNT/INPUT/SELINUX di seluruh Kconfig ==="
+    grep -rn "UMOUNT\|INPUT_HOOK\|SELINUX_HIDE" KernelSU-Next/ --include="Kconfig"
+    
+    echo ""
+    echo "=== Cek Makefile yang mengaitkan kernel_umount.c dan selinux_hide.c ==="
+    find KernelSU-Next -name "Makefile" -exec grep -l "kernel_umount\|selinux_hide" {} \;
+    find KernelSU-Next -name "Makefile" | xargs grep -n "kernel_umount\|selinux_hide"
+    
+    echo ""
+    echo "=== Isi definisi/pemanggilan path_umount ==="
+    grep -rn "path_umount" KernelSU-Next/ fs/ include/ 2>/dev/null
+    
+    echo ""
+    echo "=== Isi definisi/pemanggilan ksu_input_hook ==="
+    grep -rn "ksu_input_hook" KernelSU-Next/ drivers/input/ 2>/dev/null
       
       - name: Build kernel
         run: |
