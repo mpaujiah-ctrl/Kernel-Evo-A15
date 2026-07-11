@@ -1,4 +1,4 @@
-name: Kernel Evo A15 (vic) - KSUN v3.2.0 (pinned) + SUSFS
+name: Kernel Evo A15 (vic) - KSUN v3.2.0 (kprobe) + SUSFS
 
 on:
   workflow_dispatch:
@@ -22,24 +22,22 @@ jobs:
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3
 
-      # --- KUNCI PERBAIKAN: pin ke commit yang SAMA persis dengan InfiniR sukses ---
-      # Struktur masih flat (kernel/allowlist.c dll), belum kena refactor modular v3.3.0
-      - name: Install KernelSU-Next pinned ke commit sukses InfiniR (00cb93e / v3.2.0)
+      - name: Install KernelSU-Next pinned ke commit 00cb93e / v3.2.0
         run: |
           cd kernel
           curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s 00cb93e0bc8bf3ca3680c7e8a3d7cf11d0b59071
-          echo "=== Verify struktur folder (harus flat, bukan modular) ==="
-          ls KernelSU-Next/kernel/ | head -20
-          find KernelSU-Next -name "allowlist.c" -o -name "core_hook.c"
-          echo "=== Verify wiring otomatis ==="
+          echo "=== Verify wiring ==="
           grep -n "kernelsu" drivers/Makefile drivers/Kconfig
 
-      - name: Enable CONFIG_KSU in defconfig
+      - name: Enable CONFIG_KSU + CONFIG_KPROBES di defconfig
         run: |
           cd kernel
           grep -q "CONFIG_KSU=y" arch/arm64/configs/cepheus_defconfig || echo "CONFIG_KSU=y" >> arch/arm64/configs/cepheus_defconfig
+          grep -q "CONFIG_KPROBES=y" arch/arm64/configs/cepheus_defconfig || echo "CONFIG_KPROBES=y" >> arch/arm64/configs/cepheus_defconfig
+          grep -q "CONFIG_HAVE_KPROBES=y" arch/arm64/configs/cepheus_defconfig || echo "CONFIG_HAVE_KPROBES=y" >> arch/arm64/configs/cepheus_defconfig
+          grep -q "CONFIG_KPROBE_EVENTS=y" arch/arm64/configs/cepheus_defconfig || echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/cepheus_defconfig
           sed -i 's/CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION="-EvolutionX_cepheus_v3.2.0_KSUN"/' arch/arm64/configs/cepheus_defconfig
-          grep "CONFIG_KSU\|CONFIG_LOCALVERSION" arch/arm64/configs/cepheus_defconfig
+          grep "CONFIG_KSU\|CONFIG_KPROBE\|CONFIG_LOCALVERSION" arch/arm64/configs/cepheus_defconfig
 
       - name: Fix yamltree.c (stub kosong)
         run: |
@@ -51,17 +49,6 @@ jobs:
           void dt_to_yaml(FILE *outf, struct dt_info *dti) {}
           CEOF
 
-      # --- Hook manual reboot.c: TERBUKTI diperlukan (Hook mode: Manual di InfiniR sukses) ---
-      - name: Inject manual hook ke kernel/reboot.c
-        run: |
-          cd kernel
-          if ! grep -q "ksu_handle_sys_reboot" kernel/reboot.c; then
-            sed -i '/^SYSCALL_DEFINE4(reboot/i extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg4);' kernel/reboot.c
-            sed -i '/if (magic1 != LINUX_REBOOT_MAGIC1/i \\tksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);' kernel/reboot.c
-            grep -n "ksu_handle_sys_reboot" kernel/reboot.c
-          fi
-
-      # --- SUSFS v2.1.0: pakai file yang sama persis dengan InfiniR sukses ---
       - name: Upgrade SUSFS ke v2.1.0 (file sama dengan build InfiniR sukses)
         run: |
           cd kernel
@@ -72,16 +59,6 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep "SUSFS_VERSION" include/linux/susfs.h
 
-      - name: Debug - cari opsi Kconfig dan definisi fungsi hook
-        run: |
-          cd kernel
-          echo "=== Isi lengkap Kconfig ==="
-          cat KernelSU-Next/kernel/Kconfig || true
-          echo "=== Cari definisi ksu_handle_sys_reboot di seluruh source ==="
-          grep -rn "ksu_handle_sys_reboot" KernelSU-Next/ || echo "TIDAK DITEMUKAN sama sekali"
-          echo "=== Isi folder hook/ ==="
-          find KernelSU-Next/kernel/hook -type f || true
-      
       - name: Build kernel
         run: |
           cd kernel
