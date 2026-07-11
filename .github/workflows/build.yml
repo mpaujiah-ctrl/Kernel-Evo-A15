@@ -61,6 +61,11 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/fs/proc/task_mmu.c" -o fs/proc/task_mmu.c
           grep "SUSFS_VERSION" include/linux/susfs.h
 
+      - name: Debug - cek opsi disable fitur input/umount
+        run: |
+          cd kernel
+          find KernelSU-Next/kernel/feature -name "Kconfig" -exec cat {} \;
+      
       - name: Build kernel
         run: |
           cd kernel
