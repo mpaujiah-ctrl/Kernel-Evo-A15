@@ -60,15 +60,32 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs.h" -o include/linux/susfs.h
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs_def.h" -o include/linux/susfs_def.h
 
-      - name: Cek isi Kbuild utama dan exclude selinux_hide + kernel_umount
+      - name: Ganti selinux_hide.c dan kernel_umount.c jadi stub kosong
         run: |
           cd kernel
-          echo "=== Isi drivers/kernelsu/Kbuild (cari baris terkait) ==="
+          # Kembalikan dulu baris Kbuild yang sempat di-comment
+          sed -i 's/^#kernelsu-objs += feature\/kernel_umount.o/kernelsu-objs += feature\/kernel_umount.o/' drivers/kernelsu/Kbuild
+          sed -i 's/^#kernelsu-objs += feature\/selinux_hide.o/kernelsu-objs += feature\/selinux_hide.o/' drivers/kernelsu/Kbuild
           grep -n "selinux_hide\|kernel_umount" drivers/kernelsu/Kbuild
-          echo "=== Comment out 2 baris itu ==="
-          sed -i '/selinux_hide/s/^/#/' drivers/kernelsu/Kbuild
-          sed -i '/kernel_umount/s/^/#/' drivers/kernelsu/Kbuild
-          grep -n "selinux_hide\|kernel_umount" drivers/kernelsu/Kbuild
+      
+          # Stub kernel_umount.c
+          cat > drivers/kernelsu/feature/kernel_umount.c << 'EOF'
+          #include <linux/types.h>
+          void ksu_handle_umount(void) {}
+          int ksu_kernel_umount_init(void) { return 0; }
+          void ksu_kernel_umount_exit(void) {}
+          EOF
+          
+              # Stub selinux_hide.c
+              cat > drivers/kernelsu/feature/selinux_hide.c << 'EOF'
+          #include <linux/types.h>
+          int ksu_selinux_hide_init(void) { return 0; }
+          void ksu_selinux_hide_exit(void) {}
+          EOF
+          
+              echo "=== Verify stub ==="
+              cat drivers/kernelsu/feature/kernel_umount.c
+              cat drivers/kernelsu/feature/selinux_hide.c
       
       - name: Build kernel
         run: |
