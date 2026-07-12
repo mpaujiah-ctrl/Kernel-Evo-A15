@@ -106,20 +106,7 @@ jobs:
                OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
                -j$(nproc --all) Image.gz-dtb
           ls out/arch/arm64/boot/Image.gz-dtb
-
-      - name: Pack AnyKernel3
-        run: |
-          cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
-          cd AnyKernel3 && zip -r9 ../EvoX_cepheus_vic_v3.2.0_KSUN.zip * -x README
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: EvoX-cepheus-vic-v3.2.0-KSUN
-          path: |
-            EvoX_cepheus_vic_v3.2.0_KSUN.zip
-            kernel/out/arch/arm64/boot/Image.gz-dtb
-
+      
       - name: Download boot.img referensi dari Google Drive
         run: |
           pip install gdown --break-system-packages
