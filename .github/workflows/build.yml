@@ -60,12 +60,15 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs.h" -o include/linux/susfs.h
           curl -sL "https://raw.githubusercontent.com/raystef66/kernel_xiaomi_cepheus/16.0-ksun/include/linux/susfs_def.h" -o include/linux/susfs_def.h
 
-      - name: Debug - cari Kconfig di folder feature
+      - name: Cek isi Kbuild utama dan exclude selinux_hide + kernel_umount
         run: |
           cd kernel
-          find KernelSU-Next/kernel/feature -name "Kconfig*" -exec echo "--- {} ---" \; -exec cat {} \;
-          echo "=== Cek Makefile feature, cari flag conditional ==="
-          find KernelSU-Next/kernel/feature -name "Makefile*" -exec cat {} \;
+          echo "=== Isi drivers/kernelsu/Kbuild (cari baris terkait) ==="
+          grep -n "selinux_hide\|kernel_umount" drivers/kernelsu/Kbuild
+          echo "=== Comment out 2 baris itu ==="
+          sed -i '/selinux_hide/s/^/#/' drivers/kernelsu/Kbuild
+          sed -i '/kernel_umount/s/^/#/' drivers/kernelsu/Kbuild
+          grep -n "selinux_hide\|kernel_umount" drivers/kernelsu/Kbuild
       
       - name: Build kernel
         run: |
