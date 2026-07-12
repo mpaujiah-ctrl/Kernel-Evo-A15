@@ -123,7 +123,7 @@ jobs:
       - name: Download boot.img referensi dari Google Drive
         run: |
           pip install gdown --break-system-packages
-          gdown "https://drive.google.com/uc?id=108P6Te2rGQ0dbxuXS4TU0xMKTpjepk8F" -O reference_boot.img
+          gdown "https://drive.google.com/file/d/108P6Te2rGQ0dbxuXS4TU0xMKTpjepk8F/view?usp=drive_link" -O reference_boot.img
           echo "=== Verify ukuran file ==="
           ls -la reference_boot.img
           file reference_boot.img
