@@ -119,3 +119,33 @@ jobs:
           path: |
             EvoX_cepheus_vic_v3.2.0_KSUN.zip
             kernel/out/arch/arm64/boot/Image.gz-dtb
+
+      - name: Download boot.img referensi dari Google Drive
+        run: |
+          pip install gdown --break-system-packages
+          gdown "https://drive.google.com/uc?id=108P6Te2rGQ0dbxuXS4TU0xMKTpjepk8F" -O reference_boot.img
+          echo "=== Verify ukuran file ==="
+          ls -la reference_boot.img
+          file reference_boot.img
+
+      - name: Download magiskboot
+        run: |
+          curl -sL "https://github.com/topjohnwu/Magisk/raw/master/app/src/main/jniLibs/x86_64/libmagiskboot.so" -o magiskboot
+          chmod +x magiskboot
+
+      - name: Unpack boot.img referensi, ganti kernel, repack
+        run: |
+          mkdir -p bootimg_work && cd bootimg_work
+          cp ../reference_boot.img .
+          cp ../magiskboot .
+          ./magiskboot unpack reference_boot.img
+          cp ../kernel/out/arch/arm64/boot/Image.gz-dtb kernel
+          ./magiskboot repack reference_boot.img new-boot.img
+          echo "=== Verify ==="
+          ls -la new-boot.img
+
+      - name: Upload artifact (boot.img)
+        uses: actions/upload-artifact@v4
+        with:
+          name: EvoX-cepheus-vic-v3.2.0-KSUN-bootimg
+          path: bootimg_work/new-boot.img
